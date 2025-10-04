@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Bird Clone</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #70c5ce;
+      height: 100%;
+      width: 100%;
+    }
+    canvas {
+      display: block;
+    }
+    #restartBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 16px 36px;
+      background: #ffcc00;
+      border: none;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    #restartBtn:hover {
+      background: #ffd633;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <button id="restartBtn">Restart</button>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const restartBtn = document.getElementById("restartBtn");
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Load sprites (real Flappy Bird assets)
+    const birdImg = new Image();
+    const bgImg = new Image();
+    const pipeTop = new Image();
+    const pipeBottom = new Image();
+    const baseImg = new Image();
+
+    birdImg.src = "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-midflap.png";
+    bgImg.src = "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-day.png";
+    pipeTop.src = "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-green.png";
+    pipeBottom.src = "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-green.png";
+    baseImg.src = "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/base.png";
+
+    let loaded = 0;
+    const images = [birdImg, bgImg, pipeTop, pipeBottom, baseImg];
+    images.forEach(img => img.onload = () => {
+      loaded++;
+      if (loaded === images.length) startGame();
+    });
+
+    function startGame() {
+      let bird = {
+        x: 100,
+        y: canvas.height / 2,
+        velocity: 0,
+        gravity: 0.5,
+        jump: -8,
+        rotation: 0
+      };
+
+      let pipes = [];
+      let frame = 0;
+      let score = 0;
+      let alive = true;
+      restartBtn.style.display = "none";
+
+      function reset() {
+        bird.y = canvas.height / 2;
+        bird.velocity = 0;
+        pipes = [];
+        score = 0;
+        frame = 0;
+        alive = true;
+        restartBtn.style.display = "none";
+      }
+
+      function flap() {
+        if (alive) bird.velocity = bird.jump;
+      }
+
+      window.addEventListener("keydown", flap);
+      window.addEventListener("mousedown", flap);
+      restartBtn.addEventListener("click", reset);
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Background
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+        // Pipe generation
+        if (frame % 90 === 0) {
+          const gap = 180;
+          const top = Math.random() * (canvas.height / 2);
+          pipes.push({ x: canvas.width, top });
+        }
+
+        // Move & draw pipes
+        for (let i = 0; i < pipes.length; i++) {
+          let p = pipes[i];
+          p.x -= 3;
+
+          // Draw top pipe
+          ctx.save();
+          ctx.translate(p.x + 80 / 2, p.top - pipeTop.height / 2);
+          ctx.rotate(Math.PI);
+          ctx.drawImage(pipeTop, -80 / 2, -pipeTop.height / 2, 80, pipeTop.height);
+          ctx.restore();
+
+          // Draw bottom pipe
+          ctx.drawImage(pipeBottom, p.x, p.top + 180, 80, pipeBottom.height);
+
+          // Collision
+          if (
+            bird.x + 34 > p.x &&
+            bird.x < p.x + 80 &&
+            (bird.y < p.top || bird.y + 24 > p.top + 180)
+          ) {
+            alive = false;
+          }
+
+          // Score
+          if (p.x + 80 === bird.x) score++;
+        }
+
+        pipes = pipes.filter(p => p.x > -100);
+
+        // Bird physics
+        bird.velocity += bird.gravity;
+        bird.y += bird.velocity;
+
+        // Bird rotation (smooth tilt)
+        bird.rotation = Math.min((bird.velocity / 10) * Math.PI / 4, Math.PI / 2);
+
+        // Ground collision
+        if (bird.y + 24 >= canvas.height - 100) alive = false;
+
+        // Draw bird
+        ctx.save();
+        ctx.translate(bird.x, bird.y);
+        ctx.rotate(bird.rotation);
+        ctx.drawImage(birdImg, -17, -12, 34, 24);
+        ctx.restore();
+
+        // Score
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 36px Arial";
+        ctx.fillText(score, canvas.width / 2, 60);
+
+        // Base (ground)
+        ctx.drawImage(baseImg, 0, canvas.height - 100, canvas.width, 100);
+
+        if (!alive) {
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 48px Arial";
+          ctx.fillText("Game Over", canvas.width / 2 - 120, canvas.height / 2 - 50);
+          restartBtn.style.display = "block";
+        } else {
+          frame++;
+          requestAnimationFrame(draw);
+        }
+      }
+
+      draw();
+    }
+  </script>
+</body>
+</html>
